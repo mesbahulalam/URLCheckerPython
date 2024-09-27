@@ -15,11 +15,17 @@ def check_url(url):
 
 def process_urls(urls, batch_size):
     with concurrent.futures.ThreadPoolExecutor(max_workers=batch_size) as executor:
-        future_to_url = {executor.submit(check_url, url): url for url in urls}
-        for future in concurrent.futures.as_completed(future_to_url):
+        future_to_item = {}
+        for url in urls:
+            item = result_table.insert("", "end", values=(url, "Processing"), tags=("Processing",))
+            future = executor.submit(check_url, url)
+            future_to_item[future] = item
+        
+        for future in concurrent.futures.as_completed(future_to_item):
             url, status = future.result()
+            item = future_to_item[future]
             color = "green" if status == "Success" else "red"
-            result_table.insert("", "end", values=(url, status), tags=(status,))
+            result_table.item(item, values=(url, status), tags=(status,))
             result_table.tag_configure(status, foreground=color)
             result_table.update_idletasks()
 
