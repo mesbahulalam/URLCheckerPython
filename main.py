@@ -18,25 +18,31 @@ def check_url(url):
         if response.status_code == 200:
             soup = BeautifulSoup(response.text, 'html.parser')
             title = soup.title.string if soup.title else 'No Title'
-            return url, 'Success', title
+            favicon = None
+            icon_link = soup.find("link", rel=lambda x: x and 'icon' in x.lower())
+            if icon_link and icon_link.get('href'):
+                favicon = icon_link['href']
+                if not favicon.startswith(('http://', 'https://')):
+                    favicon = url + favicon
+            return favicon, url, 'Success', title
         else:
-            return url, 'Failure', 'N/A'
+            return None, url, 'Failure', 'N/A'
     except requests.RequestException:
-        return url, 'Failure', 'N/A'
+        return None, url, 'Failure', 'N/A'
 
 def process_urls(urls, batch_size):
     with concurrent.futures.ThreadPoolExecutor(max_workers=batch_size) as executor:
         future_to_item = {}
         for url in urls:
-            item = result_table.insert("", "end", values=(url, "Processing", "Fetching..."), tags=("Processing",))
+            item = result_table.insert("", "end", values=("Fetching...", url, "Processing", "Fetching..."), tags=("Processing",))
             future = executor.submit(check_url, url)
             future_to_item[future] = item
         
         for future in concurrent.futures.as_completed(future_to_item):
-            url, status, title = future.result()
+            favicon, url, status, title = future.result()
             item = future_to_item[future]
             color = "green" if status == "Success" else "red"
-            result_table.item(item, values=(url, status, title), tags=(status,))
+            result_table.item(item, values=(favicon, url, status, title), tags=(status,))
             result_table.tag_configure(status, foreground=color)
             result_table.update_idletasks()
 
@@ -55,7 +61,7 @@ def start_checking():
 
 def on_url_click(event):
     item = result_table.selection()[0]
-    url = result_table.item(item, "values")[0]
+    url = result_table.item(item, "values")[1]
     webbrowser.open(url)
 
 def export_to_csv():
@@ -63,7 +69,7 @@ def export_to_csv():
     if file_path:
         with open(file_path, mode='w', newline='', encoding='utf-8') as file:
             writer = csv.writer(file)
-            writer.writerow(["URL", "Status", "Title"])
+            writer.writerow(["Favicon", "URL", "Status", "Title"])
             for row_id in result_table.get_children():
                 row = result_table.item(row_id)['values']
                 writer.writerow(row)
@@ -119,7 +125,8 @@ result_frame = tk.Frame(frame)
 result_frame.pack()
 
 # Create the result table
-result_table = ttk.Treeview(result_frame, columns=("URL", "Status", "Title"), show="headings")
+result_table = ttk.Treeview(result_frame, columns=("Favicon", "URL", "Status", "Title"), show="headings")
+result_table.heading("Favicon", text="Favicon")
 result_table.heading("URL", text="URL")
 result_table.heading("Status", text="Status")
 result_table.heading("Title", text="Title")
