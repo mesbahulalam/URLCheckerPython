@@ -9,3 +9,6 @@ A mass URL checker tool written in python.
 * Output colored texts for easy visualization.
 * ~~Indeterminate progress bar to show if process is running or not.~~
 * Multi-threaded to utilize multicore systems.
+
+## ToDo
+* Add button to stop running process.
