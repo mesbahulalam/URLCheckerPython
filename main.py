@@ -8,6 +8,8 @@ import webbrowser
 from bs4 import BeautifulSoup
 
 def check_url(url):
+    if not url.startswith(('http://', 'https://')):
+        url = 'http://' + url
     try:
         response = requests.get(url, timeout=5)
         if response.status_code == 200:
