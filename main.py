@@ -1,8 +1,8 @@
-import tkinter as tk
-from tkinter import scrolledtext, messagebox
-import concurrent.futures
 import requests
 import multiprocessing
+import concurrent.futures
+import tkinter as tk
+from tkinter import scrolledtext
 
 def check_url(url):
     try:
@@ -18,6 +18,11 @@ def process_urls(urls, batch_size):
         for future in concurrent.futures.as_completed(future_to_url):
             url, status = future.result()
             results.append((url, status))
+            # Update the result area immediately
+            color = "green" if status == "Success" else "red"
+            result_area.insert(tk.INSERT, f"{url} - {status}\n", status)
+            result_area.tag_config(status, foreground=color)
+            result_area.update_idletasks()
     return results
 
 def start_checking():
@@ -50,13 +55,13 @@ frame.pack(pady=10)
 text_area = scrolledtext.ScrolledText(frame, width=50, height=10)
 text_area.pack()
 
-check_button = tk.Button(frame, text="Check URLs", command=start_checking)
-check_button.pack(pady=10)
-
-status_label = tk.Label(frame, text="Idle", fg="black")
-status_label.pack(pady=5)
-
-result_area = scrolledtext.ScrolledText(frame, width=50, height=10, state=tk.DISABLED)
+result_area = scrolledtext.ScrolledText(frame, width=50, height=10)
 result_area.pack()
+
+status_label = tk.Label(root, text="")
+status_label.pack()
+
+start_button = tk.Button(root, text="Start Checking", command=start_checking)
+start_button.pack(pady=10)
 
 root.mainloop()
