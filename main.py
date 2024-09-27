@@ -5,27 +5,33 @@ import tkinter as tk
 from tkinter import ttk
 from tkinter import scrolledtext
 import webbrowser
+from bs4 import BeautifulSoup
 
 def check_url(url):
     try:
         response = requests.get(url, timeout=5)
-        return url, 'Success' if response.status_code == 200 else 'Failure'
+        if response.status_code == 200:
+            soup = BeautifulSoup(response.text, 'html.parser')
+            title = soup.title.string if soup.title else 'No Title'
+            return url, 'Success', title
+        else:
+            return url, 'Failure', 'N/A'
     except requests.RequestException:
-        return url, 'Failure'
+        return url, 'Failure', 'N/A'
 
 def process_urls(urls, batch_size):
     with concurrent.futures.ThreadPoolExecutor(max_workers=batch_size) as executor:
         future_to_item = {}
         for url in urls:
-            item = result_table.insert("", "end", values=(url, "Processing"), tags=("Processing",))
+            item = result_table.insert("", "end", values=(url, "Processing", "Fetching..."), tags=("Processing",))
             future = executor.submit(check_url, url)
             future_to_item[future] = item
         
         for future in concurrent.futures.as_completed(future_to_item):
-            url, status = future.result()
+            url, status, title = future.result()
             item = future_to_item[future]
             color = "green" if status == "Success" else "red"
-            result_table.item(item, values=(url, status), tags=(status,))
+            result_table.item(item, values=(url, status, title), tags=(status,))
             result_table.tag_configure(status, foreground=color)
             result_table.update_idletasks()
 
@@ -57,9 +63,10 @@ frame.pack(pady=10)
 text_area = scrolledtext.ScrolledText(frame, width=50, height=10)
 text_area.pack()
 
-result_table = ttk.Treeview(frame, columns=("URL", "Status"), show="headings")
+result_table = ttk.Treeview(frame, columns=("URL", "Status", "Title"), show="headings")
 result_table.heading("URL", text="URL")
 result_table.heading("Status", text="Status")
+result_table.heading("Title", text="Title")
 result_table.pack()
 
 result_table.bind("<Double-1>", on_url_click)
