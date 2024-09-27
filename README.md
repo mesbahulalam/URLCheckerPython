@@ -4,6 +4,7 @@ A mass URL checker tool written in python.
 ## Features
 * Input multiple URLs separated by new line.
 * Import text file with URL, separated by new line.
+* Import from hosts file.
 * Export CSV
 * Export hosts
 * Output colored texts for easy visualization.

@@ -150,6 +150,15 @@ def export_to_hosts(filter_value):
                     file.write(f"127.0.0.1 {row[1]}\n")
         status_label.config(text="Hosts file exported successfully.", fg="green")
 
+def import_hosts_file():
+    file_path = filedialog.askopenfilename(filetypes=[("Text files", "*.txt"), ("All files", "*.*")])
+    if file_path:
+        with open(file_path, 'r', encoding='utf-8') as file:
+            lines = file.readlines()
+            urls = [line.split()[1] for line in lines if line.startswith("127.0.0.1")]
+            text_area.delete("1.0", tk.END)
+            text_area.insert(tk.END, "\n".join(urls))
+
 def open_file():
     file_path = filedialog.askopenfilename(filetypes=[("Text files", "*.txt"), ("All files", "*.*")])
     if file_path:
@@ -176,6 +185,7 @@ root.config(menu=menu_bar)
 file_menu = tk.Menu(menu_bar, tearoff=0)
 menu_bar.add_cascade(label="File", menu=file_menu)
 file_menu.add_command(label="Open File", command=open_file)
+file_menu.add_command(label="Import Hosts File", command=import_hosts_file)
 file_menu.add_command(label="Export to CSV", command=show_export_window)
 file_menu.add_command(label="Export to Hosts File", command=show_export_hosts_dialog)
 file_menu.add_separator()
