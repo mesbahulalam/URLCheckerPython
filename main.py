@@ -69,15 +69,50 @@ def export_to_csv():
                 writer.writerow(row)
         status_label.config(text="Results exported successfully.", fg="green")
 
+def open_file():
+    file_path = filedialog.askopenfilename(filetypes=[("Text files", "*.txt"), ("All files", "*.*")])
+    if file_path:
+        with open(file_path, 'r', encoding='utf-8') as file:
+            content = file.read()
+            text_area.delete("1.0", tk.END)
+            text_area.insert(tk.END, content)
+
+def exit_app():
+    root.quit()
+
+def show_context_menu(event):
+    context_menu.post(event.x_root, event.y_root)
+
 # GUI setup
 root = tk.Tk()
 root.title("URL Checker")
+
+# Create a menu bar
+menu_bar = tk.Menu(root)
+root.config(menu=menu_bar)
+
+# Create a File menu
+file_menu = tk.Menu(menu_bar, tearoff=0)
+menu_bar.add_cascade(label="File", menu=file_menu)
+file_menu.add_command(label="Open File", command=open_file)
+file_menu.add_command(label="Export to CSV", command=export_to_csv)
+file_menu.add_separator()
+file_menu.add_command(label="Exit", command=exit_app)
 
 frame = tk.Frame(root)
 frame.pack(pady=10)
 
 text_area = scrolledtext.ScrolledText(frame, width=50, height=10)
 text_area.pack()
+
+# Create a context menu for the text area
+context_menu = tk.Menu(text_area, tearoff=0)
+context_menu.add_command(label="Cut", command=lambda: text_area.event_generate("<<Cut>>"))
+context_menu.add_command(label="Copy", command=lambda: text_area.event_generate("<<Copy>>"))
+context_menu.add_command(label="Paste", command=lambda: text_area.event_generate("<<Paste>>"))
+context_menu.add_command(label="Select All", command=lambda: text_area.event_generate("<<SelectAll>>"))
+
+text_area.bind("<Button-3>", show_context_menu)
 
 # Create a frame for the result table and scrollbar
 result_frame = tk.Frame(frame)
@@ -104,8 +139,5 @@ status_label.pack()
 
 start_button = tk.Button(root, text="Start Checking", command=start_checking)
 start_button.pack(pady=10)
-
-export_button = tk.Button(root, text="Export to CSV", command=export_to_csv)
-export_button.pack(pady=10)
 
 root.mainloop()
