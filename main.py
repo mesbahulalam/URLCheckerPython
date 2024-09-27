@@ -10,6 +10,8 @@ from bs4 import BeautifulSoup
 import threading
 import csv
 
+stop_event = threading.Event()
+
 def check_url(url):
     if not url.startswith(('http://', 'https://')):
         url = 'http://' + url
@@ -34,17 +36,26 @@ def process_urls(urls, batch_size):
     with concurrent.futures.ThreadPoolExecutor(max_workers=batch_size) as executor:
         future_to_item = {}
         for url in urls:
+            if stop_event.is_set():
+                break
             item = result_table.insert("", "end", values=("Fetching...", url, "Processing", "Fetching..."), tags=("Processing",))
             future = executor.submit(check_url, url)
             future_to_item[future] = item
         
         for future in concurrent.futures.as_completed(future_to_item):
+            if stop_event.is_set():
+                break
             favicon, url, status, title = future.result()
             item = future_to_item[future]
             color = "green" if status == "Success" else "red"
             result_table.item(item, values=(favicon, url, status, title), tags=(status,))
             result_table.tag_configure(status, foreground=color)
             result_table.update_idletasks()
+    
+    stop_event.clear()
+    start_button.pack(pady=10)
+    stop_button.pack_forget()
+    status_label.config(text="Finished checking URLs.", fg="green")
 
 def start_checking():
     status_label.config(text="Checking URLs...", fg="blue")
@@ -57,7 +68,14 @@ def start_checking():
     result_table.delete(*result_table.get_children())
     
     # Run the URL checking process in a separate thread
+    stop_event.clear()
+    start_button.pack_forget()
+    stop_button.pack(pady=10)
     threading.Thread(target=process_urls, args=(urls, batch_size)).start()
+
+def stop_checking():
+    stop_event.set()
+    status_label.config(text="Stopping...", fg="red")
 
 def on_url_click(event):
     item = result_table.selection()[0]
@@ -146,5 +164,8 @@ status_label.pack()
 
 start_button = tk.Button(root, text="Start Checking", command=start_checking)
 start_button.pack(pady=10)
+
+stop_button = tk.Button(root, text="Stop Checking", command=stop_checking)
+stop_button.pack_forget()
 
 root.mainloop()
