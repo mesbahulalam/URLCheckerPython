@@ -6,6 +6,7 @@ from tkinter import ttk
 from tkinter import scrolledtext
 import webbrowser
 from bs4 import BeautifulSoup
+import threading
 
 def check_url(url):
     if not url.startswith(('http://', 'https://')):
@@ -46,7 +47,9 @@ def start_checking():
     batch_size = multiprocessing.cpu_count()
     
     result_table.delete(*result_table.get_children())
-    process_urls(urls, batch_size)
+    
+    # Run the URL checking process in a separate thread
+    threading.Thread(target=process_urls, args=(urls, batch_size)).start()
     
     status_label.config(text="Finished checking URLs.", fg="green")
 
