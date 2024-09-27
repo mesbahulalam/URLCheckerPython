@@ -4,9 +4,11 @@ import concurrent.futures
 import tkinter as tk
 from tkinter import ttk
 from tkinter import scrolledtext
+from tkinter import filedialog
 import webbrowser
 from bs4 import BeautifulSoup
 import threading
+import csv
 
 def check_url(url):
     if not url.startswith(('http://', 'https://')):
@@ -50,13 +52,22 @@ def start_checking():
     
     # Run the URL checking process in a separate thread
     threading.Thread(target=process_urls, args=(urls, batch_size)).start()
-    
-    status_label.config(text="Finished checking URLs.", fg="green")
 
 def on_url_click(event):
     item = result_table.selection()[0]
     url = result_table.item(item, "values")[0]
     webbrowser.open(url)
+
+def export_to_csv():
+    file_path = filedialog.asksaveasfilename(defaultextension=".csv", filetypes=[("CSV files", "*.csv"), ("All files", "*.*")])
+    if file_path:
+        with open(file_path, mode='w', newline='', encoding='utf-8') as file:
+            writer = csv.writer(file)
+            writer.writerow(["URL", "Status", "Title"])
+            for row_id in result_table.get_children():
+                row = result_table.item(row_id)['values']
+                writer.writerow(row)
+        status_label.config(text="Results exported successfully.", fg="green")
 
 # GUI setup
 root = tk.Tk()
@@ -93,5 +104,8 @@ status_label.pack()
 
 start_button = tk.Button(root, text="Start Checking", command=start_checking)
 start_button.pack(pady=10)
+
+export_button = tk.Button(root, text="Export to CSV", command=export_to_csv)
+export_button.pack(pady=10)
 
 root.mainloop()
