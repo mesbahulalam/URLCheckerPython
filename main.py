@@ -98,14 +98,19 @@ def show_export_window():
     for col in columns:
         tk.Checkbutton(export_window, text=col, variable=column_vars[col]).pack(anchor='w')
 
+    filter_var = tk.StringVar(value="All")
+    tk.Label(export_window, text="Filter:").pack(anchor='w')
+    filter_combobox = ttk.Combobox(export_window, textvariable=filter_var, values=["All", "Success", "Failure"], state="readonly")
+    filter_combobox.pack(anchor='w')
+
     def export():
         selected_columns = [col for col in columns if column_vars[col].get()]
-        export_to_csv(selected_columns)
+        export_to_csv(selected_columns, filter_var.get())
         export_window.destroy()
 
     tk.Button(export_window, text="Export", command=export).pack(pady=10)
 
-def export_to_csv(selected_columns):
+def export_to_csv(selected_columns, filter_value):
     file_path = filedialog.asksaveasfilename(defaultextension=".csv", filetypes=[("CSV files", "*.csv"), ("All files", "*.*")])
     if file_path:
         with open(file_path, mode='w', newline='', encoding='utf-8') as file:
@@ -113,7 +118,8 @@ def export_to_csv(selected_columns):
             writer.writerow(selected_columns)
             for row_id in result_table.get_children():
                 row = result_table.item(row_id)['values']
-                writer.writerow([row[columns.index(col)] for col in selected_columns])
+                if filter_value == "All" or row[2] == filter_value:
+                    writer.writerow([row[columns.index(col)] for col in selected_columns])
         status_label.config(text="Results exported successfully.", fg="green")
 
 def open_file():
