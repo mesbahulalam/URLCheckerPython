@@ -55,6 +55,7 @@ def process_urls(urls, batch_size):
     stop_event.clear()
     start_button.pack(pady=10)
     stop_button.pack_forget()
+    clear_button.pack(pady=10)
     status_label.config(text="Finished checking URLs.", fg="green")
 
 def start_checking():
@@ -71,11 +72,16 @@ def start_checking():
     stop_event.clear()
     start_button.pack_forget()
     stop_button.pack(pady=10)
+    clear_button.pack_forget()
     threading.Thread(target=process_urls, args=(urls, batch_size)).start()
 
 def stop_checking():
     stop_event.set()
     status_label.config(text="Stopping...", fg="red")
+
+def clear_results():
+    result_table.delete(*result_table.get_children())
+    clear_button.pack_forget()
 
 def on_url_click(event):
     item = result_table.selection()[0]
@@ -167,5 +173,8 @@ start_button.pack(pady=10)
 
 stop_button = tk.Button(root, text="Stop Checking", command=stop_checking)
 stop_button.pack_forget()
+
+clear_button = tk.Button(root, text="Clear Results", command=clear_results)
+clear_button.pack_forget()
 
 root.mainloop()
