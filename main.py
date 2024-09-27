@@ -65,11 +65,23 @@ frame.pack(pady=10)
 text_area = scrolledtext.ScrolledText(frame, width=50, height=10)
 text_area.pack()
 
-result_table = ttk.Treeview(frame, columns=("URL", "Status", "Title"), show="headings")
+# Create a frame for the result table and scrollbar
+result_frame = tk.Frame(frame)
+result_frame.pack()
+
+# Create the result table
+result_table = ttk.Treeview(result_frame, columns=("URL", "Status", "Title"), show="headings")
 result_table.heading("URL", text="URL")
 result_table.heading("Status", text="Status")
 result_table.heading("Title", text="Title")
-result_table.pack()
+result_table.pack(side=tk.LEFT)
+
+# Create a vertical scrollbar for the result table
+scrollbar = ttk.Scrollbar(result_frame, orient=tk.VERTICAL, command=result_table.yview)
+scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+
+# Configure the result table to use the scrollbar
+result_table.configure(yscrollcommand=scrollbar.set)
 
 result_table.bind("<Double-1>", on_url_click)
 
