@@ -88,15 +88,32 @@ def on_url_click(event):
     url = result_table.item(item, "values")[1]
     webbrowser.open(url)
 
-def export_to_csv():
+def show_export_window():
+    export_window = tk.Toplevel(root)
+    export_window.title("Select Columns to Export")
+
+    columns = ["Favicon", "URL", "Status", "Title"]
+    column_vars = {col: tk.BooleanVar(value=True) for col in columns}
+
+    for col in columns:
+        tk.Checkbutton(export_window, text=col, variable=column_vars[col]).pack(anchor='w')
+
+    def export():
+        selected_columns = [col for col in columns if column_vars[col].get()]
+        export_to_csv(selected_columns)
+        export_window.destroy()
+
+    tk.Button(export_window, text="Export", command=export).pack(pady=10)
+
+def export_to_csv(selected_columns):
     file_path = filedialog.asksaveasfilename(defaultextension=".csv", filetypes=[("CSV files", "*.csv"), ("All files", "*.*")])
     if file_path:
         with open(file_path, mode='w', newline='', encoding='utf-8') as file:
             writer = csv.writer(file)
-            writer.writerow(["Favicon", "URL", "Status", "Title"])
+            writer.writerow(selected_columns)
             for row_id in result_table.get_children():
                 row = result_table.item(row_id)['values']
-                writer.writerow(row)
+                writer.writerow([row[columns.index(col)] for col in selected_columns])
         status_label.config(text="Results exported successfully.", fg="green")
 
 def open_file():
@@ -125,7 +142,7 @@ root.config(menu=menu_bar)
 file_menu = tk.Menu(menu_bar, tearoff=0)
 menu_bar.add_cascade(label="File", menu=file_menu)
 file_menu.add_command(label="Open File", command=open_file)
-file_menu.add_command(label="Export to CSV", command=export_to_csv)
+file_menu.add_command(label="Export to CSV", command=show_export_window)
 file_menu.add_separator()
 file_menu.add_command(label="Exit", command=exit_app)
 
@@ -149,11 +166,10 @@ result_frame = tk.Frame(frame)
 result_frame.pack()
 
 # Create the result table
-result_table = ttk.Treeview(result_frame, columns=("Favicon", "URL", "Status", "Title"), show="headings")
-result_table.heading("Favicon", text="Favicon")
-result_table.heading("URL", text="URL")
-result_table.heading("Status", text="Status")
-result_table.heading("Title", text="Title")
+columns = ["Favicon", "URL", "Status", "Title"]
+result_table = ttk.Treeview(result_frame, columns=columns, show="headings")
+for col in columns:
+    result_table.heading(col, text=col)
 result_table.pack(side=tk.LEFT)
 
 # Create a vertical scrollbar for the result table
