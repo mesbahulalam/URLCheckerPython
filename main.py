@@ -1,82 +1,62 @@
 import tkinter as tk
-from tkinter import messagebox
-from tkinter import ttk
-import asyncio
-import aiohttp
+from tkinter import scrolledtext, messagebox
+import concurrent.futures
+import requests
+import multiprocessing
 
-async def check_url(session, url):
+def check_url(url):
     try:
-        async with session.get(url) as response:
-            if response.status == 200:
-                return True
-            else:
-                return False
-    except aiohttp.ClientError as e:
-        print(f"Error: {e}")
-        return False
+        response = requests.get(url, timeout=5)
+        return url, 'Success' if response.status_code == 200 else 'Failure'
+    except requests.RequestException:
+        return url, 'Failure'
 
-async def check_urls():
-    urls = url_text.get("1.0", tk.END).strip().split('\n')
-    
-    # Clear previous results
-    for item in result_table.get_children():
-        result_table.delete(item)
-    
-    async with aiohttp.ClientSession() as session:
-        tasks = []
-        for url in urls:
-            tasks.append(check_url(session, url))
-        
-        results = await asyncio.gather(*tasks)
-        
-        for url, result in zip(urls, results):
-            status = "Success" if result else "Failed"
-            tag = 'success' if status == "Success" else 'failed'
-            result_table.insert("", "end", values=(url, status), tags=(tag,))
-    
-    # Stop the progress bar
-    progress_bar.stop()
-    
-    # Enable the button again
-    check_button.config(state=tk.NORMAL)
+def process_urls(urls, batch_size):
+    results = []
+    with concurrent.futures.ThreadPoolExecutor(max_workers=batch_size) as executor:
+        future_to_url = {executor.submit(check_url, url): url for url in urls}
+        for future in concurrent.futures.as_completed(future_to_url):
+            url, status = future.result()
+            results.append((url, status))
+    return results
 
-def on_check_button_click():
-    # Disable the button to prevent multiple clicks
-    check_button.config(state=tk.DISABLED)
+def start_checking():
+    status_label.config(text="Checking URLs...", fg="blue")
+    root.update_idletasks()
     
-    # Start the progress bar
-    progress_bar.start()
+    input_text = text_area.get("1.0", tk.END).strip()
+    urls = [line for line in input_text.split('\n') if line and not line.startswith('#')]
+    batch_size = multiprocessing.cpu_count()
+    results = process_urls(urls, batch_size)
     
-    # Run the URL checking in an asynchronous manner
-    asyncio.run(check_urls())
+    result_area.config(state=tk.NORMAL)
+    result_area.delete("1.0", tk.END)
+    
+    for url, status in results:
+        color = "green" if status == "Success" else "red"
+        result_area.insert(tk.INSERT, f"{url} - {status}\n", status)
+        result_area.tag_config(status, foreground=color)
+    
+    result_area.config(state=tk.DISABLED)
+    status_label.config(text="Finished checking URLs.", fg="green")
 
-# Create the main window
+# GUI setup
 root = tk.Tk()
 root.title("URL Checker")
 
-# Create and place the URL entry
-url_label = tk.Label(root, text="Enter URLs (one per line):")
-url_label.pack(pady=5)
-url_text = tk.Text(root, height=10, width=50)
-url_text.pack(pady=5)
+frame = tk.Frame(root)
+frame.pack(pady=10)
 
-# Create and place the Check button
-check_button = tk.Button(root, text="Check", command=on_check_button_click)
-check_button.pack(pady=20)
+text_area = scrolledtext.ScrolledText(frame, width=50, height=10)
+text_area.pack()
 
-# Create and place the result table
-result_table = ttk.Treeview(root, columns=("URL", "Status"), show="headings")
-result_table.heading("URL", text="URL")
-result_table.heading("Status", text="Status")
-result_table.pack(pady=20)
+check_button = tk.Button(frame, text="Check URLs", command=start_checking)
+check_button.pack(pady=10)
 
-# Configure tags for coloring
-result_table.tag_configure('success', foreground='green')
-result_table.tag_configure('failed', foreground='red')
+status_label = tk.Label(frame, text="Idle", fg="black")
+status_label.pack(pady=5)
 
-# Create and place the progress bar
-progress_bar = ttk.Progressbar(root, mode='indeterminate')
-progress_bar.pack(pady=20)
+result_area = scrolledtext.ScrolledText(frame, width=50, height=10, state=tk.DISABLED)
+result_area.pack()
 
-# Run the application
 root.mainloop()
