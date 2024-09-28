@@ -85,12 +85,12 @@ def start_checking():
     clear_button.pack_forget()
     threading.Thread(target=process_urls, args=(urls, batch_size)).start()
 
-# def stop_checking():
-#     stop_event.set()
-#     status_label.config(text="Stopping...", fg="red")
-#     stop_button.pack_forget()
-#     start_button.pack(pady=10)
-#     status_label.config(text="Stopped.", fg="red")
+def stop_checking():
+    stop_event.set()
+    status_label.config(text="Stopping...", fg="red")
+    stop_button.pack_forget()
+    start_button.pack(pady=10)
+    status_label.config(text="Stopped.", fg="red")
 
 def clear_results():
     result_table.delete(*result_table.get_children())
@@ -178,7 +178,7 @@ def import_bookmarks_file():
             text_area.delete("1.0", tk.END)
             text_area.insert(tk.END, "\n".join(urls))
 
-def export_to_bookmarks():
+def export_to_bookmarks(filter_value):
     file_path = filedialog.asksaveasfilename(defaultextension=".html", filetypes=[("HTML files", "*.html"), ("All files", "*.*")])
     if file_path:
         with open(file_path, 'w', encoding='utf-8') as file:
@@ -189,7 +189,8 @@ def export_to_bookmarks():
             file.write('<DL><p>\n')
             for row_id in result_table.get_children():
                 row = result_table.item(row_id)['values']
-                file.write(f'<DT><A HREF="{row[1]}">{row[3]}</A>\n')
+                if filter_value == "All" or row[2] == filter_value:
+                    file.write(f'<DT><A HREF="{row[1]}">{row[3]}</A>\n')
             file.write('</DL><p>\n')
         status_label.config(text="Bookmarks exported successfully.", fg="green")
 
@@ -207,7 +208,24 @@ def exit_app():
 def show_context_menu(event):
     context_menu.post(event.x_root, event.y_root)
 
-def show_export_progress():
+
+def show_export_filter_dialog():
+    filter_window = tk.Toplevel(root)
+    filter_window.title("Export Filter")
+
+    filter_var = tk.StringVar(value="All")
+    tk.Label(filter_window, text="Include:").pack(anchor='w')
+    filter_combobox = ttk.Combobox(filter_window, textvariable=filter_var, values=["All", "Success", "Failure"], state="readonly")
+    filter_combobox.pack(anchor='w')
+
+    def apply_filter():
+        selected_filter = filter_var.get()
+        filter_window.destroy()
+        show_export_progress(selected_filter)
+
+    tk.Button(filter_window, text="Apply", command=apply_filter).pack(pady=10)
+
+def show_export_progress(filter_value):
     progress_window = tk.Toplevel(root)
     progress_window.title("Exporting Bookmarks")
     progress_label = tk.Label(progress_window, text="Exporting bookmarks, please wait...")
@@ -223,14 +241,28 @@ def show_export_progress():
         progress_window.destroy()
 
     def export_with_progress():
-        total_steps = 100  # Assuming 100 steps for simplicity
-        for step in range(total_steps):
-            if stop_event.is_set():
-                break
-            # Simulate work being done
-            threading.Event().wait(0.1)
-            update_progress(step + 1)
-        export_to_bookmarks()
+        file_path = filedialog.asksaveasfilename(defaultextension=".html", filetypes=[("HTML files", "*.html"), ("All files", "*.*")])
+        if file_path:
+            with open(file_path, 'w', encoding='utf-8') as file:
+                file.write('<!DOCTYPE NETSCAPE-Bookmark-file-1>\n')
+                file.write('<META HTTP-EQUIV="Content-Type" CONTENT="text/html; charset=UTF-8">\n')
+                file.write('<TITLE>Bookmarks</TITLE>\n')
+                file.write('<H1>Bookmarks</H1>\n')
+                file.write('<DL><p>\n')
+                
+                rows = result_table.get_children()
+                total_steps = len(rows)
+                
+                for step, row_id in enumerate(rows):
+                    if stop_event.is_set():
+                        break
+                    row = result_table.item(row_id)['values']
+                    if filter_value == "All" or row[2] == filter_value:
+                        file.write(f'<DT><A HREF="{row[1]}">{row[3]}</A>\n')
+                    update_progress((step + 1) / total_steps * 100)
+                
+                file.write('</DL><p>\n')
+            status_label.config(text="Bookmarks exported successfully.", fg="green")
         close_progress_window()
 
     threading.Thread(target=export_with_progress).start()
@@ -251,7 +283,7 @@ file_menu.add_command(label="Import Hosts File", command=import_hosts_file)
 file_menu.add_command(label="Import Bookmarks File", command=import_bookmarks_file)
 file_menu.add_command(label="Export to CSV", command=show_export_window)
 file_menu.add_command(label="Export to Hosts File", command=show_export_hosts_dialog)
-file_menu.add_command(label="Export to Bookmarks", command=show_export_progress)
+file_menu.add_command(label="Export to Bookmarks", command=show_export_filter_dialog)
 file_menu.add_separator()
 file_menu.add_command(label="Exit", command=exit_app)
 
