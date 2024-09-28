@@ -1,63 +1,11 @@
-import requests
-import multiprocessing
-import concurrent.futures
 import tkinter as tk
-from tkinter import ttk
-from tkinter import scrolledtext
-from tkinter import filedialog
-from tkinter import simpledialog
+from tkinter import ttk, scrolledtext, filedialog, simpledialog
 import webbrowser
-from bs4 import BeautifulSoup
 import threading
+import multiprocessing
+from url_checker import check_url, process_urls, stop_event
+from export_import import export_to_csv, export_to_hosts, import_hosts_file, import_bookmarks_file
 import csv
-
-stop_event = threading.Event()
-
-def check_url(url):
-    if not url.startswith(('http://', 'https://')):
-        url = 'http://' + url
-    try:
-        response = requests.get(url, timeout=5)
-        if response.status_code == 200:
-            soup = BeautifulSoup(response.text, 'html.parser')
-            title = soup.title.string if soup.title else 'No Title'
-            favicon = None
-            icon_link = soup.find("link", rel=lambda x: x and 'icon' in x.lower())
-            if icon_link and icon_link.get('href'):
-                favicon = icon_link['href']
-                if not favicon.startswith(('http://', 'https://')):
-                    favicon = url + favicon
-            return favicon, url, 'Success', title
-        else:
-            return None, url, 'Failure', 'N/A'
-    except requests.RequestException:
-        return None, url, 'Failure', 'N/A'
-
-def process_urls(urls, batch_size):
-    with concurrent.futures.ThreadPoolExecutor(max_workers=batch_size) as executor:
-        future_to_item = {}
-        for url in urls:
-            if stop_event.is_set():
-                break
-            item = result_table.insert("", "end", values=("Fetching...", url, "Processing", "Fetching..."), tags=("Processing",))
-            future = executor.submit(check_url, url)
-            future_to_item[future] = item
-        
-        for future in concurrent.futures.as_completed(future_to_item):
-            if stop_event.is_set():
-                break
-            favicon, url, status, title = future.result()
-            item = future_to_item[future]
-            color = "green" if status == "Success" else "red"
-            result_table.item(item, values=(favicon, url, status, title), tags=(status,))
-            result_table.tag_configure(status, foreground=color)
-            result_table.update_idletasks()
-    
-    stop_event.clear()
-    start_button.pack(pady=10)
-    # stop_button.pack_forget()
-    clear_button.pack(pady=10)
-    status_label.config(text="Finished checking URLs.", fg="green")
 
 def start_checking():
     status_label.config(text="Checking URLs...", fg="blue")
@@ -74,7 +22,7 @@ def start_checking():
     start_button.pack_forget()
     # stop_button.pack(pady=10)
     clear_button.pack_forget()
-    threading.Thread(target=process_urls, args=(urls, batch_size)).start()
+    threading.Thread(target=process_urls, args=(urls, batch_size, result_table, status_label, start_button, stop_button, clear_button)).start()
 
 # def stop_checking():
 #     stop_event.set()
@@ -108,22 +56,10 @@ def show_export_window():
 
     def export():
         selected_columns = [col for col in columns if column_vars[col].get()]
-        export_to_csv(selected_columns, filter_var.get())
+        export_to_csv(selected_columns, filter_var.get(), result_table, status_label)
         export_window.destroy()
 
     tk.Button(export_window, text="Export", command=export).pack(pady=10)
-
-def export_to_csv(selected_columns, filter_value):
-    file_path = filedialog.asksaveasfilename(defaultextension=".csv", filetypes=[("CSV files", "*.csv"), ("All files", "*.*")])
-    if file_path:
-        with open(file_path, mode='w', newline='', encoding='utf-8') as file:
-            writer = csv.writer(file)
-            writer.writerow(selected_columns)
-            for row_id in result_table.get_children():
-                row = result_table.item(row_id)['values']
-                if filter_value == "All" or row[2] == filter_value:
-                    writer.writerow([row[columns.index(col)] for col in selected_columns])
-        status_label.config(text="Results exported successfully.", fg="green")
 
 def show_export_hosts_dialog():
     export_window = tk.Toplevel(root)
@@ -135,29 +71,10 @@ def show_export_hosts_dialog():
     filter_combobox.pack(anchor='w')
 
     def export():
-        export_to_hosts(filter_var.get())
+        export_to_hosts(filter_var.get(), result_table, status_label)
         export_window.destroy()
 
     tk.Button(export_window, text="Export", command=export).pack(pady=10)
-
-def export_to_hosts(filter_value):
-    file_path = filedialog.asksaveasfilename(defaultextension=".txt", filetypes=[("Text files", "*.txt"), ("All files", "*.*")])
-    if file_path:
-        with open(file_path, mode='w', encoding='utf-8') as file:
-            for row_id in result_table.get_children():
-                row = result_table.item(row_id)['values']
-                if filter_value == "All" or row[2] == filter_value:
-                    file.write(f"127.0.0.1 {row[1]}\n")
-        status_label.config(text="Hosts file exported successfully.", fg="green")
-
-def import_hosts_file():
-    file_path = filedialog.askopenfilename(filetypes=[("Text files", "*.txt"), ("All files", "*.*")])
-    if file_path:
-        with open(file_path, 'r', encoding='utf-8') as file:
-            lines = file.readlines()
-            urls = [line.split()[1] for line in lines if line.startswith("127.0.0.1")]
-            text_area.delete("1.0", tk.END)
-            text_area.insert(tk.END, "\n".join(urls))
 
 def open_file():
     file_path = filedialog.askopenfilename(filetypes=[("Text files", "*.txt"), ("All files", "*.*")])
@@ -184,8 +101,9 @@ root.config(menu=menu_bar)
 # Create a File menu
 file_menu = tk.Menu(menu_bar, tearoff=0)
 menu_bar.add_cascade(label="File", menu=file_menu)
-file_menu.add_command(label="Open File", command=open_file)
+file_menu.add_command(label="Import Text File", command=open_file)
 file_menu.add_command(label="Import Hosts File", command=import_hosts_file)
+file_menu.add_command(label="Import Bookmarks", command=import_bookmarks_file)
 file_menu.add_command(label="Export to CSV", command=show_export_window)
 file_menu.add_command(label="Export to Hosts File", command=show_export_hosts_dialog)
 file_menu.add_separator()
