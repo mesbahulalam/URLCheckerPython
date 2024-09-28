@@ -34,6 +34,10 @@ def check_url(url):
         return None, url, 'Failure', 'N/A'
 
 def process_urls(urls, batch_size):
+    total_count = len(urls)
+    live_count = 0
+    dead_count = 0
+
     with concurrent.futures.ThreadPoolExecutor(max_workers=batch_size) as executor:
         future_to_item = {}
         for url in urls:
@@ -52,12 +56,17 @@ def process_urls(urls, batch_size):
             result_table.item(item, values=(favicon, url, status, title), tags=(status,))
             result_table.tag_configure(status, foreground=color)
             result_table.update_idletasks()
+
+            if status == "Success":
+                live_count += 1
+            else:
+                dead_count += 1
     
     stop_event.clear()
     start_button.pack(pady=10)
     # stop_button.pack_forget()
     clear_button.pack(pady=10)
-    status_label.config(text="Finished checking URLs.", fg="green")
+        status_label.config(text=f"Finished checking URLs. Total: {total_count}, Live: {live_count}, Dead: {dead_count}", fg="green")
 
 def start_checking():
     status_label.config(text="Checking URLs...", fg="blue")
