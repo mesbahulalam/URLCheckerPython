@@ -66,7 +66,7 @@ def process_urls(urls, batch_size):
     start_button.pack(pady=10)
     # stop_button.pack_forget()
     clear_button.pack(pady=10)
-        status_label.config(text=f"Finished checking URLs. Total: {total_count}, Live: {live_count}, Dead: {dead_count}", fg="green")
+    status_label.config(text=f"Finished checking URLs. Total: {total_count}, Live: {live_count}, Dead: {dead_count}", fg="green")
 
 def start_checking():
     status_label.config(text="Checking URLs...", fg="blue")
@@ -90,6 +90,7 @@ def start_checking():
 #     status_label.config(text="Stopping...", fg="red")
 #     stop_button.pack_forget()
 #     start_button.pack(pady=10)
+#     status_label.config(text="Stopped.", fg="red")
 
 def clear_results():
     result_table.delete(*result_table.get_children())
@@ -168,6 +169,30 @@ def import_hosts_file():
             text_area.delete("1.0", tk.END)
             text_area.insert(tk.END, "\n".join(urls))
 
+def import_bookmarks_file():
+    file_path = filedialog.askopenfilename(filetypes=[("HTML files", "*.html"), ("All files", "*.*")])
+    if file_path:
+        with open(file_path, 'r', encoding='utf-8') as file:
+            soup = BeautifulSoup(file, 'html.parser')
+            urls = [a['href'] for a in soup.find_all('a', href=True)]
+            text_area.delete("1.0", tk.END)
+            text_area.insert(tk.END, "\n".join(urls))
+
+def export_to_bookmarks():
+    file_path = filedialog.asksaveasfilename(defaultextension=".html", filetypes=[("HTML files", "*.html"), ("All files", "*.*")])
+    if file_path:
+        with open(file_path, 'w', encoding='utf-8') as file:
+            file.write('<!DOCTYPE NETSCAPE-Bookmark-file-1>\n')
+            file.write('<META HTTP-EQUIV="Content-Type" CONTENT="text/html; charset=UTF-8">\n')
+            file.write('<TITLE>Bookmarks</TITLE>\n')
+            file.write('<H1>Bookmarks</H1>\n')
+            file.write('<DL><p>\n')
+            for row_id in result_table.get_children():
+                row = result_table.item(row_id)['values']
+                file.write(f'<DT><A HREF="{row[1]}">{row[3]}</A>\n')
+            file.write('</DL><p>\n')
+        status_label.config(text="Bookmarks exported successfully.", fg="green")
+
 def open_file():
     file_path = filedialog.askopenfilename(filetypes=[("Text files", "*.txt"), ("All files", "*.*")])
     if file_path:
@@ -182,6 +207,34 @@ def exit_app():
 def show_context_menu(event):
     context_menu.post(event.x_root, event.y_root)
 
+def show_export_progress():
+    progress_window = tk.Toplevel(root)
+    progress_window.title("Exporting Bookmarks")
+    progress_label = tk.Label(progress_window, text="Exporting bookmarks, please wait...")
+    progress_label.pack(pady=20)
+    progress_bar = ttk.Progressbar(progress_window, mode='determinate', maximum=100)
+    progress_bar.pack(pady=10, padx=20)
+
+    def update_progress(value):
+        progress_bar['value'] = value
+        progress_window.update_idletasks()
+
+    def close_progress_window():
+        progress_window.destroy()
+
+    def export_with_progress():
+        total_steps = 100  # Assuming 100 steps for simplicity
+        for step in range(total_steps):
+            if stop_event.is_set():
+                break
+            # Simulate work being done
+            threading.Event().wait(0.1)
+            update_progress(step + 1)
+        export_to_bookmarks()
+        close_progress_window()
+
+    threading.Thread(target=export_with_progress).start()
+
 # GUI setup
 root = tk.Tk()
 root.title("URL Checker")
@@ -195,8 +248,10 @@ file_menu = tk.Menu(menu_bar, tearoff=0)
 menu_bar.add_cascade(label="File", menu=file_menu)
 file_menu.add_command(label="Open File", command=open_file)
 file_menu.add_command(label="Import Hosts File", command=import_hosts_file)
+file_menu.add_command(label="Import Bookmarks File", command=import_bookmarks_file)
 file_menu.add_command(label="Export to CSV", command=show_export_window)
 file_menu.add_command(label="Export to Hosts File", command=show_export_hosts_dialog)
+file_menu.add_command(label="Export to Bookmarks", command=show_export_progress)
 file_menu.add_separator()
 file_menu.add_command(label="Exit", command=exit_app)
 
